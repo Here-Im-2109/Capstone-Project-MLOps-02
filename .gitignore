@@ -219,3 +219,6 @@ __marimo__/
 .vscode/
 credential.txt
 notebooks/
+local_s3/
+data/
+models/
