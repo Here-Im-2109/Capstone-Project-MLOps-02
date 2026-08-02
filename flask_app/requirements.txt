@@ -17,3 +17,5 @@ nltk
 numpy
 pandas
 prometheus_client
+
+-e .
