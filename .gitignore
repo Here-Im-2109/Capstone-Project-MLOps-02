@@ -220,5 +220,13 @@ __marimo__/
 credential.txt
 notebooks/
 local_s3/
-data/
+# data/ - Malik, woo thoda galti ho gaya malik, bahar wala 'data' folder ko DVC me naa add
+#       - karne k chakkar me, andar wala 'data' folder v gitignore file me add ho gaya malik,
+#       - isiliye CI/CD pipeline bar bar fail kar raha execute hone me malik.
+
+data/raw
+data/processed
+data/interim
+data/external
+
 models/
