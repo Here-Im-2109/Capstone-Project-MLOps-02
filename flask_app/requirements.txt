@@ -1,6 +1,6 @@
 dvc
 dvc-s3
-mlflow
+mlflow==2.22.1
 dagshub
 pandas
 numpy
