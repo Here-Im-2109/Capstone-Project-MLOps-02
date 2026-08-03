@@ -49,4 +49,4 @@ jobs:
         if: success()
         env:
           CAPSTONE_TEST: ${{ secrets.CAPSTONE_TEST }}
-        run: python -m unittest tests/test_flask_app.py
+        run: python -m unittest tests/test_flask_app.py # Before Docker & AWS-EKS
