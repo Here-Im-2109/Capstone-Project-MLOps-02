@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI Pipeline - Before Docker & AWS-EKS
 
 on: push
 
