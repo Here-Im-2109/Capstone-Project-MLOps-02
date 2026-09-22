@@ -1,4 +1,4 @@
 [core]
     remote = myremote
 ['remote "myremote"']
-    url = s3://cosplaints-datagrid
+    url = s3://cosplaints-datagrid-01

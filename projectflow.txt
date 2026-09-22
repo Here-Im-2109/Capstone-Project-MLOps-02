@@ -41,8 +41,9 @@
 24. pip install - dvc[s3] & awscli
 25. Checking/deleting dvc remote (optional) - [dvc remote list & dvc remote remove <name>(mylocal)] 
 26. Set aws cred - aws configure
-27. Add s3 as dvc remote storage - dvc remote add -d myremote s3://<bucket-name>
-                                 -  dvc remote add -d myremote s3://cosplaints-datagrid
+27. Add s3 as dvc remote storage              ->  dvc remote add -d myremote s3://<bucket-name>
+                                              ->  dvc remote add -d myremote s3://cosplaints-datagrid-01
+    To push the DataVersion to remote server  -> 'dvc status' and then 'dvc commit' and then 'dvc push'
 
 
 28. Create new dir - flask_app | Inside that, add rest of the files and dir
@@ -56,3 +57,7 @@
     >> Add this auth token to github secret&var and update on ci file
 
 31. Add dir "tests"&"scripts" and files within. This will contain our test related scripts for CI.
+
+                                -> git add .
+                                -> git commit -m 'CI/CD - RUN - Before docker & AWS-EKS '
+                                -> git push origin main
