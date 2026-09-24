@@ -1,21 +1,9 @@
-dvc
-dvc-s3
 mlflow==2.22.1
+mlflow_skinny
 dagshub
-pandas
 numpy
-scikit-learn
-xgboost
-PyYAML
 python-dotenv
 Flask
-fastapi
-uvicorn
-joblib
-boto3
 nltk
-numpy
 pandas
 prometheus_client
-
--e .

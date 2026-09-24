@@ -61,3 +61,27 @@
                                 -> git add .
                                 -> git commit -m 'CI/CD - RUN - Before docker & AWS-EKS '
                                 -> git push origin main
+
+
+-------------------------Moving to Docker---------------------------
+
+# pipreqs is use to extract the exact 'requirements.txt' files to run the application only.
+32. pip install pipreqs 
+33. cd flask_app & do "pipreqs . --force"
+34. Add dockerfile and start docker-desktop in background
+    Also before proceeding make sure: [ copy '.env' file to the flask_app/ change cmd on dockerfile ]
+35. go to root dir and: "docker build -t capstone-app:latest ."
+36. Try running the image: "docker run -p 8888:5000 capstone-app:latest"
+    - alternate: docker run -p 8888:5000 -e CAPSTONE_TEST = <Your DAGSHUB API Key> capstone-app:latest
+    - docker push youruser/capstone-app:latest (optional)
+    - optional: try to delete image locally and pull it from dockerhub and run (optional)
+
+37. Setup aws services for below secrets and variables:
+	AWS_ACCESS_KEY_ID
+	AWS_SECRET_ACCESS_KEY
+	AWS_REGION
+	ECR_REPOSITORY (capstone-proj)
+    AWS_ACCOUNT_ID
+   (Also add this permission to the IAM user: AmazonEC2ContainerRegistryFullAccess)
+
+38. Execute CICD pipeline till the stage where we build and push image to ECR.
