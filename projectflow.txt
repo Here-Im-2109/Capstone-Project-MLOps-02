@@ -80,8 +80,362 @@
 	AWS_ACCESS_KEY_ID
 	AWS_SECRET_ACCESS_KEY
 	AWS_REGION
-	ECR_REPOSITORY (capstone-proj)
+	ECR_REPOSITORY (flask-app)
     AWS_ACCOUNT_ID
    (Also add this permission to the IAM user: AmazonEC2ContainerRegistryFullAccess)
 
 38. Execute CICD pipeline till the stage where we build and push image to ECR.
+
+----------------------------------------------------------------------------------
+********* Setup required before moving to EKS deployment *********
+----------------------------------------------------------------------------------
+
+1. AWS CLI CONFLICT FIX
+----------------------------------------------------------------------------------
+
+* Check which AWS CLI is being used:
+
+    Get-Command aws
+
+* Initially, AWS CLI was coming from the Conda/Python environment:
+
+    D:\Kubernatics\mlops_02\Scripts\aws.cmd
+
+* This was a conflicting Python-based AWS CLI installation.
+
+* Remove the Python-based AWS CLI from the active Conda environment:
+
+    pip uninstall awscli
+
+* After uninstalling, `aws` was temporarily not recognized.
+
+* Check whether official AWS CLI v2 is installed:
+
+    Test-Path "C:\Program Files\Amazon\AWSCLIV2\aws.exe"
+
+* Initially returned:
+
+    False
+
+* Install the official AWS CLI v2 using the AWSCLIV2.msi installer.
+
+* Restart PowerShell after installation.
+
+* Verify AWS CLI:
+
+    aws --version
+
+* Verify AWS CLI path:
+
+    Get-Command aws
+
+* Final working configuration:
+
+    aws-cli/2.37.3
+    C:\Program Files\Amazon\AWSCLIV2\aws.exe
+
+----------------------------------------------------------------------------------
+2. KUBECTL
+----------------------------------------------------------------------------------
+
+* Download kubectl: Invoke-WebRequest -Uri "https://dl.k8s.io/release/v1.28.2/bin/windows/amd64/kubectl.exe" -OutFile "kubectl.exe"
+* Locate the Download: Get-Location
+* Move kubectl.exe to a directory in your system PATH, such as C:\Windows\System32: Move-Item -Path .\kubectl.exe -Destination "C:\Windows\System32"
+* Test if kubectl is properly installed: kubectl version --client
+
+* Verify:
+
+    kubectl version --client
+
+* Working version:
+
+    Client Version: v1.36.1
+    Kustomize Version: v5.8.1
+
+----------------------------------------------------------------------------------
+3. EKSCTL INSTALLATION
+----------------------------------------------------------------------------------
+
+* Initially eksctl was not recognized.
+
+* Downloaded eksctl:
+
+    Invoke-WebRequest -Uri "https://github.com/eksctl-io/eksctl/releases/download/v0.158.0/eksctl_Windows_amd64.zip" -OutFile "eksctl.zip"
+
+* Extract:
+
+    Expand-Archive -Path .\eksctl.zip -DestinationPath .
+
+* Moving to System32 initially produced:
+
+    Access to the path is denied.
+
+* Solution:
+  Open PowerShell as Administrator and move:
+
+    Move-Item -Path .\eksctl.exe -Destination "C:\Windows\System32\eksctl.exe"
+
+* Initial eksctl version:
+
+    0.158.0
+
+* This old version automatically selected Kubernetes 1.25.
+
+* AWS rejected Kubernetes 1.25 with:
+
+    unsupported Kubernetes version 1.25
+
+* Therefore eksctl was updated to a newer version.
+
+* Final eksctl version:
+
+    0.230.0
+
+* Verify:
+
+    eksctl version
+
+----------------------------------------------------------------------------------
+4. AWS CONFIGURATION
+----------------------------------------------------------------------------------
+
+* Configure AWS CLI:
+
+    aws configure
+
+* Region used:
+
+    us-east-1
+
+* Verify AWS authentication:
+
+    aws sts get-caller-identity
+
+* AWS authentication successfully returned the IAM identity.
+
+----------------------------------------------------------------------------------
+5. FIRST EKS CLUSTER CREATION ATTEMPT
+----------------------------------------------------------------------------------
+
+* Initial command:
+
+    eksctl create cluster --name flask-app-cluster --region us-east-1 --nodegroup-name flask-app-nodes --node-type t3.small --nodes 1 --nodes-min 1 --nodes-max 1 --managed
+
+* Problem:
+
+    eksctl version 0.158.0 selected Kubernetes version 1.25.
+
+* AWS returned:
+
+    unsupported Kubernetes version 1.25
+
+* The EKS cluster creation failed and CloudFormation entered:
+
+    ROLLBACK_COMPLETE
+
+----------------------------------------------------------------------------------
+6. CLEANUP OF FAILED CLOUDFORMATION STACK
+----------------------------------------------------------------------------------
+
+* Check cluster:
+
+    eksctl get cluster --region us-east-1
+
+* Result:
+
+    No clusters found
+
+* Check CloudFormation stack:
+
+    aws cloudformation describe-stacks `
+      --stack-name eksctl-flask-app-cluster-cluster `
+      --region us-east-1 `
+      --query "Stacks[0].StackStatus"
+
+* Result:
+
+    ROLLBACK_COMPLETE
+
+* Delete the leftover CloudFormation stack:
+
+    aws cloudformation delete-stack `
+      --stack-name eksctl-flask-app-cluster-cluster `
+      --region us-east-1
+
+* Wait for deletion:
+
+    aws cloudformation wait stack-delete-complete `
+      --stack-name eksctl-flask-app-cluster-cluster `
+      --region us-east-1
+
+* Verify cleanup:
+
+    eksctl get cluster --region us-east-1
+
+* Result:
+
+    No clusters found
+
+----------------------------------------------------------------------------------
+7. CHECK AVAILABLE EKS KUBERNETES VERSIONS
+----------------------------------------------------------------------------------
+
+* Check available Kubernetes versions in us-east-1:
+
+    aws eks describe-cluster-versions --region us-east-1 --query "clusterVersions[].clusterVersion" --output text
+
+* Available versions included:
+
+    1.36
+    1.35
+    1.34
+    1.33
+    1.32
+    1.31
+
+----------------------------------------------------------------------------------
+8. UPDATED EKS CLUSTER CREATION COMMAND
+----------------------------------------------------------------------------------
+
+* Because the old eksctl selected unsupported Kubernetes 1.25,
+  explicitly specify a supported Kubernetes version.
+
+* Use the updated eksctl version 0.230.0.
+
+* Recommended command:
+
+** 39. eksctl create cluster --name flask-app-cluster --region us-east-1 --version 1.36 --nodegroup-name flask-app-nodes --node-type t3.small --nodes 1 --nodes-min 1 --nodes-max 1 --managed
+
+* This creates:
+
+    Cluster Name: flask-app-cluster
+    Region: us-east-1
+    Kubernetes Version: 1.36
+    Node Group: flask-app-nodes
+    Instance Type: t3.small
+    Nodes: 1
+    Minimum Nodes: 1
+    Maximum Nodes: 1
+    Managed Node Group: Yes
+
+* Kubernetes 1.36 uses Amazon Linux 2023 for the node group.
+
+----------------------------------------------------------------------------------
+9. IMPORTANT DIFFERENCES FROM THE ORIGINAL INSTRUCTIONS
+----------------------------------------------------------------------------------
+
+Original:
+    AWS CLI may use Python/Conda installation.
+
+Updated:
+    Official AWS CLI v2 is installed and used from:
+
+    C:\Program Files\Amazon\AWSCLIV2\aws.exe
+
+Original:
+    kubectl v1.28.2
+
+Updated/current:
+    kubectl v1.36.1
+
+Original:
+    eksctl v0.158.0
+
+Updated/current:
+    eksctl v0.230.0
+
+Original:
+    Kubernetes version selected automatically.
+
+Updated:
+    Explicitly use:
+
+    --version 1.36
+
+Original:
+    No cleanup instructions for failed CloudFormation stack.
+
+Updated:
+    If a failed attempt leaves:
+
+    eksctl-flask-app-cluster-cluster
+
+    in ROLLBACK_COMPLETE, delete the stack before retrying.
+
+----------------------------------------------------------------------------------
+10. CURRENT TOOL STATUS
+----------------------------------------------------------------------------------
+
+AWS CLI       → 2.37.3 ✅
+kubectl       → 1.36.1 ✅
+eksctl        → 0.230.0 ✅
+AWS Region    → us-east-1 ✅
+AWS Auth      → Working ✅
+EKS Cluster   → Ready to create
+----------------------------------------------------------------------------------
+
+
+40. Update kubectl Config(Once the cluster is created, eksctl will automatically update your kubectl config file. However, you can verify and set it manually using:)
+aws eks --region us-east-1 update-kubeconfig --name flask-app-cluster (This ensures your kubectl is pointing to the correct cluster.) {(Optional) To verify, run kubectl get nodes}
+
+41. Check EKS Cluster Configuration Ensure you can access your EKS cluster by running
+    aws eks list-clusters
+
+
+42. Delete cluster(optional):
+    eksctl delete cluster --name flask-app-cluster --region us-east-1
+
+    Also, verify cluster deletion:
+    eksctl get cluster --region us-east-1
+
+43. Verify the cluster status:
+    aws eks --region us-east-1 describe-cluster --name flask-app-cluster --query "cluster.status"
+
+
+44. Check cluster connectivity:
+    kubectl get nodes
+
+45. Check the namespaces:
+    kubectl get namespaces
+
+46. Verify the deployment:
+    kubectl get pods -A
+    kubectl get svc
+
+47. Deploy the app on EKS via CICD pipeline 
+    >> edit ci.yaml, deployment.yaml, dockerfile
+    >> Also edit the security group for nodes and edit inbound rule for 5000 port
+
+
+48. Once the LoadBalancer service is up, get the external IP:
+    kubectl get svc flask-app-service
+
+49. Try externa-ip:5000 directly on url or on terminal : curl http://external-ip:5000
+    curl http://a6bf6255d5f61470c9782b8955c98271-1409247973.us-east-1.elb.amazonaws.com:5000
+
+----------------------------------------------------------------------------------
+***** How Is CloudFormation Related to EKS? *****
+----------------------------------------------------------------------------------
+
+What Is CloudFormation? 
+AWS CloudFormation is a service that helps define and provision AWS infrastructure as code using templates. It automates the process of creating and managing AWS resources.
+
+How Does It Relate to EKS?
+When you run eksctl, it generates CloudFormation templates behind the scenes to create:
+1. The EKS control plane.
+2. Node groups.
+CloudFormation ensures that these resources are created and managed as a stack (a logical grouping of resources).
+
+What Is a Stack in CloudFormation?
+A CloudFormation Stack is a collection of AWS resources (like VPCs, subnets, EC2 instances, etc.) managed as a single unit. For EKS:
+1. eksctl-flask-app-cluster-cluster stack: Creates the EKS control plane.
+2. eksctl-flask-app-cluster-nodegroup-flask-app-nodes stack: Creates the worker nodes.
+
+Each stack contains:
+
+1. A template defining the resources (YAML or JSON).
+2. Resource dependencies and configurations.
+
+----------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------

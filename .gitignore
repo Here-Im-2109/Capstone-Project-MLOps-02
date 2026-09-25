@@ -230,3 +230,5 @@ data/interim
 data/external
 
 models/
+
+cmf_file.txt
