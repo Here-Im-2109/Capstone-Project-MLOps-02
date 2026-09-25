@@ -1,16 +1,18 @@
-name: CI/CD Pipeline - AWS-EKS
+name: CI Pipeline - AWS-EKS
 
 on: push
 
 jobs:
 
   # ============================================================
-  # JOB 1 — PROJECT TESTING
+  # JOB 1 - PROJECT TESTING
   # ============================================================
+
   project-testing:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: checkout code
         uses: actions/checkout@v3
 
@@ -53,21 +55,48 @@ jobs:
         if: success()
         env:
           CAPSTONE_TEST: ${{ secrets.CAPSTONE_TEST }}
-        run: python -m unittest tests/test_flask_app.py
+        run: |
+          python -m unittest tests/test_flask_app.py
 
 
   # ============================================================
-  # JOB 2 — DOCKER + ECR
+  # JOB 2 - DOCKER + ECR
   # ============================================================
+
   docker-ecr:
     needs: project-testing
     runs-on: ubuntu-latest
 
     steps:
+
       - name: checkout code
         uses: actions/checkout@v3
 
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10.20'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: run pipeline
+        env:
+          CAPSTONE_TEST: ${{ secrets.CAPSTONE_TEST }}
+        run: |
+          dvc repro
+
       - name: Login to AWS ECR
+        if: success()
         run: |
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -92,13 +121,15 @@ jobs:
 
 
   # ============================================================
-  # JOB 3 — DEPLOY TO EKS
+  # JOB 3 - DEPLOY TO EKS
   # ============================================================
+
   deploy-eks:
     needs: docker-ecr
     runs-on: ubuntu-latest
 
     steps:
+
       - name: checkout code
         uses: actions/checkout@v3
 
