@@ -366,17 +366,17 @@ Updated:
 10. CURRENT TOOL STATUS
 ----------------------------------------------------------------------------------
 
-AWS CLI       → 2.37.3 ✅
-kubectl       → 1.36.1 ✅
-eksctl        → 0.230.0 ✅
-AWS Region    → us-east-1 ✅
-AWS Auth      → Working ✅
+AWS CLI       → 2.37.3     ✅
+kubectl       → 1.36.1     ✅
+eksctl        → 0.230.0    ✅
+AWS Region    → us-east-1  ✅
+AWS Auth      → Working    ✅
 EKS Cluster   → Ready to create
 ----------------------------------------------------------------------------------
 
 
 40. Update kubectl Config(Once the cluster is created, eksctl will automatically update your kubectl config file. However, you can verify and set it manually using:)
-aws eks --region us-east-1 update-kubeconfig --name flask-app-cluster (This ensures your kubectl is pointing to the correct cluster.) {(Optional) To verify, run kubectl get nodes}
+    aws eks --region us-east-1 update-kubeconfig --name flask-app-cluster (This ensures your kubectl is pointing to the correct cluster.) {(Optional) To verify, run kubectl get nodes}
 
 41. Check EKS Cluster Configuration Ensure you can access your EKS cluster by running
     aws eks list-clusters
@@ -411,7 +411,7 @@ aws eks --region us-east-1 update-kubeconfig --name flask-app-cluster (This ensu
     kubectl get svc flask-app-service
 
 49. Try externa-ip:5000 directly on url or on terminal : curl http://external-ip:5000
-    curl http://a6bf6255d5f61470c9782b8955c98271-1409247973.us-east-1.elb.amazonaws.com:5000
+    curl http://ac0c81a010a2141de963cce62f8bd020-982286727.us-east-1.elb.amazonaws.com:5000
 
 ----------------------------------------------------------------------------------
 ***** How Is CloudFormation Related to EKS? *****
@@ -436,6 +436,101 @@ Each stack contains:
 1. A template defining the resources (YAML or JSON).
 2. Resource dependencies and configurations.
 
+
+Fleet Requests
+Definition: A Fleet Request is an AWS internal process for provisioning EC2 instances. When creating a NodeGroup, EKS uses an Auto Scaling Group (ASG) to request EC2 instances, which count as Fleet Requests.
+
+
+Why Relevant?
+Relevant: AWS imposes a limit on the number of Fleet Requests per account. If your account exceeds this limit (e.g., due to other active ASGs or EKS clusters), NodeGroup creation fails with the error "You’ve reached your quota for maximum Fleet Requests".
+
+
+What is a PVC?
+1. PVC (PersistentVolumeClaim) is a request for storage by a Kubernetes application. It is bound to a PV (PersistentVolume), which is the actual storage resource.
+2. PVCs use StorageClasses to define how the volume should be provisioned (e.g., EBS volumes on AWS, NFS, etc.).
+3. When a pod is deployed and needs storage, it will request the storage defined in the PVC.
+
 ----------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------
+
+
+>>>>>>>>>> Prometheus Server Setup <<<<<<<<<<
+
+50. Launch an Ubuntu EC2 Instance for Prometheus: t3.medium,  20GB of disk space (general-purpose SSD), Security Group: Allow inbound access on ports: 9090 for Prometheus Web UI, 22 for SSH access
+
+51. SSH into the EC2 Instance(optional or connect directly to ec2 server alternatively):
+    ssh -i your-key.pem ubuntu@your-ec2-public-ip
+
+52. Update packages: sudo apt update && sudo apt upgrade -y
+
+53. Download Prometheus:
+    wget https://github.com/prometheus/prometheus/releases/download/v2.46.0/prometheus-2.46.0.linux-amd64.tar.gz
+    tar -xvzf prometheus-2.46.0.linux-amd64.tar.gz
+    mv prometheus-2.46.0.linux-amd64 prometheus
+
+54. Move files to standard paths:
+    sudo mv prometheus /etc/prometheus
+    sudo mv /etc/prometheus/prometheus /usr/local/bin/
+
+55. Create Prometheus Configuration: 
+>> Open the file for editing: sudo nano /etc/prometheus/prometheus.yml
+>> Edit the File:
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "flask-app"
+    static_configs:
+      - targets: ["ac0c81a010a2141de963cce62f8bd020-982286727.us-east-1.elb.amazonaws.com:5000"]  # Replace with your app's External IP
+
+
+    >> Save the File: ctrl+o -> enter -> ctrl+x
+    >> Verify the Changes: cat /etc/prometheus/prometheus.yml
+
+56. Locate the Prometheus Binary(Run the following command to find where the prometheus executable is installed):
+    >> which prometheus
+This should return the full path to the prometheus binary, such as /usr/local/bin/Prometheus
+
+57. Run Prometheus with the config file:
+    >> /usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml
+
+
+>>>>>>>>>> Grafana Server Setup <<<<<<<<<<
+
+58. Launch an Ubuntu EC2 Instance for Grafana: t3.medium,  20GB of disk space (general-purpose SSD), Security Group: Allow inbound access on ports: 3000 for Grafana Web UI, 22 for SSH access
+
+59. SSH into the EC2 Instance(optional or connect directly to ec2 server alternatively):
+    >> ssh -i your-key.pem ubuntu@your-ec2-public-ip
+
+60. Update and upgrade system packages:
+    >> sudo apt update && sudo apt upgrade -y
+
+61. Download Grafana: wget https://dl.grafana.com/grafana-enterprise/release/13.2.2/grafana-enterprise_13.2.2_34846740809_linux_amd64.deb
+    (this is a stable version for now; adjust the link if necessary.)
+
+62. Install Grafana: sudo dpkg -i grafana-enterprise_13.2.2_34846740809_linux_amd64.deb
+
+63. Start the Grafana service: sudo systemctl start grafana-server
+
+64. Enable Grafana to start on boot: sudo systemctl enable grafana-server
+
+65. Verify the service is running: sudo systemctl status grafana-server
+
+66. Open Grafana web UI: http://100.58.243.98:3000 (username & password - admin)
+
+67. Add Prometheus as a Data Source: http://100.58.243.98:9090
+    click - Save and Test | Get started with building dashboards.
+
+
+>>>>>>>>>> AWS Resource Cleanup <<<<<<<<<<
+
+* Delete deployment - kubectl delete deployment flask-app
+* Delete service - kubectl delete service flask-app-service
+* Delete env var - kubectl delete secret capstone-secret
+* Delete EKS Cluster - eksctl delete cluster --name flask-app-cluster --region us-east-1
+* Verify Cluster Deletion - eksctl get cluster --region us-east-1
+* Delete artifacts of ECR and S3 (optional - delete ECR and S3)
+* Validate if Cloud Formation stacks are deleted.
+* Confirm service termination on AWS support chat.
